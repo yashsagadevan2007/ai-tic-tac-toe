@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI Tic-Tac-Toe Battle Arena PRO</title>
+
+<style>
+body {
+    text-align: center;
+    font-family: Arial;
+    background: black;
+    color: #00f7ff;
+}
+
+h1 {
+    text-shadow: 0 0 20px #00f7ff;
+    animation: glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+    from { text-shadow: 0 0 10px #00f7ff; }
+    to { text-shadow: 0 0 25px #00f7ff; }
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 120px);
+    gap: 10px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.cell {
+    width: 120px;
+    height: 120px;
+    font-size: 40px;
+    background: black;
+    border: 2px solid #00f7ff;
+    color: #00f7ff;
+    cursor: pointer;
+    box-shadow: 0 0 15px #00f7ff;
+    transition: 0.2s;
+}
+
+.cell:hover {
+    transform: scale(1.1);
+    background: #00f7ff;
+    color: black;
+}
+
+.cell:active {
+    transform: scale(0.9);
+}
+
+.win {
+    background: lime !important;
+    color: black;
+}
+
+button {
+    margin: 10px;
+    padding: 10px 15px;
+    background: #00f7ff;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+button:hover { transform: scale(1.1); }
+button:active { transform: scale(0.9); }
+
+.score {
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎮 AI Tic-Tac-Toe Battle Arena PRO</h1>
+
+<button onclick="setMode('easy')">Easy</button>
+<button onclick="setMode('hard')">Hard</button>
+
+<p id="mode">Mode: HARD</p>
+
+<div class="score">
+You: <span id="you">0</span> |
+AI: <span id="ai">0</span> |
+Draw: <span id="draw">0</span>
+</div>
+
+<div class="board" id="board"></div>
+
+<div id="status">Your Turn (X)</div>
+
+<button onclick="restart()">Restart Game</button>
+
+<!-- Sounds -->
+<audio id="clickSound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3"></audio>
+<audio id="winSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"></audio>
+<audio id="loseSound" src="https://www.soundjay.com/misc/sounds/fail-buzzer-02.mp3"></audio>
+
+<!-- Confetti -->
+<canvas id="confetti"></canvas>
+
+<script>
+let board = ["","","","","","","","",""];
+let gameOver = false;
+let mode = "hard";
+let scoreYou = 0, scoreAI = 0, scoreDraw = 0;
+let boardDiv;
+
+window.onload = function() {
+    boardDiv = document.getElementById("board");
+    renderBoard();
+};
+
+function setMode(m) {
+    mode = m;
+    document.getElementById("mode").innerText = "Mode: " + m.toUpperCase();
+    restart();
+}
+
+function renderBoard() {
+    boardDiv.innerHTML = "";
+    board.forEach((cell, i) => {
+        let btn = document.createElement("button");
+        btn.className = "cell";
+        btn.innerText = cell;
+        btn.onclick = () => playerMove(i);
+        boardDiv.appendChild(btn);
+    });
+}
+
+function playerMove(i) {
+    if (board[i] === "" && !gameOver) {
+        document.getElementById("clickSound").play();
+
+        board[i] = "X";
+        renderBoard();
+
+        if (checkWinner("X")) {
+            scoreYou++;
+            updateScore();
+            document.getElementById("winSound").play();
+            startConfetti();
+            return endGame("You Win! 🎉");
+        }
+
+        if (!board.includes("")) {
+            scoreDraw++;
+            updateScore();
+            return endGame("Draw 😐");
+        }
+
+        aiMove();
+    }
+}
+
+function aiMove() {
+    document.getElementById("status").innerText = "🤖 AI Thinking...";
+
+    setTimeout(() => {
+        let move;
+
+        if (mode === "easy") {
+            let empty = board.map((v,i)=>v==""?i:null).filter(v=>v!==null);
+            move = empty[Math.floor(Math.random()*empty.length)];
+        } else {
+            move = minimax(board, "O").index;
+        }
+
+        board[move] = "O";
+        document.getElementById("clickSound").play();
+        renderBoard();
+
+        if (checkWinner("O")) {
+            scoreAI++;
+            updateScore();
+            document.getElementById("loseSound").play();
+            return endGame("AI Wins 💀");
+        }
+
+        if (!board.includes("")) {
+            scoreDraw++;
+            updateScore();
+            return endGame("Draw 😐");
+        }
+
+        document.getElementById("status").innerText = "Your Turn (X)";
+    }, 500);
+}
+
+function minimax(newBoard, player) {
+    let empty = newBoard.map((v,i)=>v==""?i:null).filter(v=>v!==null);
+
+    if (checkWinner("X")) return {score:-1};
+    if (checkWinner("O")) return {score:1};
+    if (empty.length===0) return {score:0};
+
+    let moves=[];
+
+    for(let i of empty){
+        let move={};
+        move.index=i;
+        newBoard[i]=player;
+
+        let result=minimax(newBoard, player==="O"?"X":"O");
+        move.score=result.score;
+
+        newBoard[i]="";
+        moves.push(move);
+    }
+
+    let bestMove;
+    if(player==="O"){
+        let bestScore=-Infinity;
+        moves.forEach((m,i)=>{
+            if(m.score>bestScore){bestScore=m.score;bestMove=i;}
+        });
+    } else {
+        let bestScore=Infinity;
+        moves.forEach((m,i)=>{
+            if(m.score<bestScore){bestScore=m.score;bestMove=i;}
+        });
+    }
+
+    return moves[bestMove];
+}
+
+function checkWinner(p) {
+    const win = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+    ];
+
+    for (let c of win) {
+        if (c.every(i => board[i] === p)) {
+            highlightWin(c);
+            return true;
+        }
+    }
+    return false;
+}
+
+function highlightWin(combo) {
+    let cells = document.getElementsByClassName("cell");
+    combo.forEach(i => cells[i].classList.add("win"));
+}
+
+function updateScore() {
+    document.getElementById("you").innerText = scoreYou;
+    document.getElementById("ai").innerText = scoreAI;
+    document.getElementById("draw").innerText = scoreDraw;
+}
+
+function endGame(msg) {
+    gameOver = true;
+    document.getElementById("status").innerText = msg;
+}
+
+function restart() {
+    board = ["","","","","","","","",""];
+    gameOver = false;
+    document.getElementById("status").innerText = "Your Turn (X)";
+    renderBoard();
+}
+
+/* Confetti effect */
+function startConfetti() {
+    const canvas = document.getElementById("confetti");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let pieces = Array.from({length: 100}, () => ({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: Math.random()*6+4,
+        d: Math.random()*100
+    }));
+
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "yellow";
+        pieces.forEach(p=>{
+            ctx.beginPath();
+            ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+            ctx.fill();
+        });
+        update();
+    }
+
+    function update() {
+        pieces.forEach(p=>{
+            p.y += Math.cos(p.d)+2;
+            if(p.y > canvas.height) p.y = 0;
+        });
+    }
+
+    setInterval(draw, 30);
+}
+</script>
+
+</body>
+</html>
