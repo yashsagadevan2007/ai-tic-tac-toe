@@ -1,306 +1,363 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>AI Tic-Tac-Toe Battle Arena PRO</title>
+<title>Tic Tac Toe PRO</title>
 
 <style>
 body {
+    background: black;
+    color: cyan;
     text-align: center;
     font-family: Arial;
-    background: black;
-    color: #00f7ff;
 }
 
-h1 {
-    text-shadow: 0 0 20px #00f7ff;
-    animation: glow 1.5s infinite alternate;
+#difficultyScreen, #gameScreen { display: none; }
+
+.title {
+    font-size: 70px;
+    text-shadow: 0 0 30px cyan;
 }
 
-@keyframes glow {
-    from { text-shadow: 0 0 10px #00f7ff; }
-    to { text-shadow: 0 0 25px #00f7ff; }
+button {
+    background: cyan;
+    border: none;
+    padding: 15px 30px;
+    margin: 10px;
+    font-size: 20px;
+    cursor: pointer;
 }
 
 .board {
     display: grid;
-    grid-template-columns: repeat(3, 120px);
-    gap: 10px;
+    grid-template-columns: repeat(3, 100px);
+    gap: 20px;
     justify-content: center;
     margin-top: 30px;
 }
 
 .cell {
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
+    border: 2px solid cyan;
+    box-shadow: 0 0 15px cyan;
     font-size: 40px;
-    background: black;
-    border: 2px solid #00f7ff;
-    color: #00f7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    box-shadow: 0 0 15px #00f7ff;
     transition: 0.2s;
-}
-
-.cell:hover {
-    transform: scale(1.1);
-    background: #00f7ff;
-    color: black;
 }
 
 .cell:active {
-    transform: scale(0.9);
+    background: blue;
+    transform: scale(0.8);
+    box-shadow: 0 0 40px blue;
 }
 
 .win {
-    background: lime !important;
+    background: lime;
     color: black;
+    box-shadow: 0 0 40px lime;
 }
 
-button {
-    margin: 10px;
-    padding: 10px 15px;
-    background: #00f7ff;
-    border: none;
-    cursor: pointer;
-    transition: 0.2s;
+#chat {
+    margin-top: 20px;
+    border: 2px solid cyan;
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: inline-block;
 }
 
-button:hover { transform: scale(1.1); }
-button:active { transform: scale(0.9); }
+#score {
+    margin-top: 10px;
+    font-size: 20px;
+}
 
-.score {
-    margin-top: 15px;
+#result {
+    margin-top: 10px;
+    font-size: 24px;
+    font-weight: bold;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎮 AI Tic-Tac-Toe Battle Arena PRO</h1>
-
-<button onclick="setMode('easy')">Easy</button>
-<button onclick="setMode('hard')">Hard</button>
-
-<p id="mode">Mode: HARD</p>
-
-<div class="score">
-You: <span id="you">0</span> |
-AI: <span id="ai">0</span> |
-Draw: <span id="draw">0</span>
+<div id="startScreen">
+    <div class="title">🎮 TIC TAC TOE 🤖</div>
+    <button onclick="goDifficulty()">▶ START</button>
 </div>
 
-<div class="board" id="board"></div>
+<div id="difficultyScreen">
+    <div class="title">⚙ SELECT LEVEL</div>
+    <button onclick="startGame('easy')">😄 Easy</button>
+    <button onclick="startGame('medium')">😐 Medium</button>
+    <button onclick="startGame('hard')">😈 Hard</button>
+    <br>
+    <button onclick="goBack()">🔙 Back</button>
+</div>
 
-<div id="status">Your Turn (X)</div>
+<div id="gameScreen">
+    <div id="score"></div>
+    <div id="result"></div>
 
-<button onclick="restart()">Restart Game</button>
+    <div id="board" class="board"></div>
 
-<!-- Sounds -->
-<audio id="clickSound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3"></audio>
+    <div id="chat">🤖 Ready</div>
+
+    <br>
+    <button onclick="restart()">🔄 Restart</button>
+    <button onclick="goBackToMenu()">🔙 Back</button>
+</div>
+
+<!-- SOUNDS -->
+<audio id="clickSound" src="https://www.soundjay.com/buttons/button-09.mp3"></audio>
 <audio id="winSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"></audio>
-<audio id="loseSound" src="https://www.soundjay.com/misc/sounds/fail-buzzer-02.mp3"></audio>
+<audio id="bgSound" src="https://www.soundjay.com/ambient/sounds/keyboard-typing-01.mp3" loop></audio>
 
-<!-- Confetti -->
-<canvas id="confetti"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <script>
 let board = ["","","","","","","","",""];
-let gameOver = false;
-let mode = "hard";
-let scoreYou = 0, scoreAI = 0, scoreDraw = 0;
-let boardDiv;
+let isPlayerTurn = true;
+let difficulty = "easy";
 
-window.onload = function() {
-    boardDiv = document.getElementById("board");
-    renderBoard();
-};
+/* 🏆 SCORE SYSTEM */
+let playerScore = localStorage.getItem("pScore") || 0;
+let aiScore = localStorage.getItem("aScore") || 0;
 
-function setMode(m) {
-    mode = m;
-    document.getElementById("mode").innerText = "Mode: " + m.toUpperCase();
-    restart();
+function saveScore(){
+    localStorage.setItem("pScore", playerScore);
+    localStorage.setItem("aScore", aiScore);
 }
 
-function renderBoard() {
-    boardDiv.innerHTML = "";
-    board.forEach((cell, i) => {
-        let btn = document.createElement("button");
-        btn.className = "cell";
-        btn.innerText = cell;
-        btn.onclick = () => playerMove(i);
-        boardDiv.appendChild(btn);
+function updateScore(){
+    document.getElementById("score").innerText =
+        "🏆 You: "+playerScore+"  |  AI: "+aiScore;
+}
+
+/* 💬 AI MESSAGES */
+function aiMessage(type){
+    const messages = {
+        start: ["😈 Let’s begin","🤖 Ready","🔥 Show me your skills"],
+        move: ["😏 Interesting","👀 I see","🤔 Thinking..."],
+        aiWin: ["😈 I win","💀 Too easy"],
+        playerWin: ["👏 Nice","😳 Good move"],
+        draw: ["🤝 Draw","😐 Balanced"]
+    };
+    let arr = messages[type];
+    return arr[Math.floor(Math.random()*arr.length)];
+}
+
+/* Navigation */
+function goDifficulty(){
+    startScreen.style.display="none";
+    difficultyScreen.style.display="block";
+}
+
+function goBack(){
+    difficultyScreen.style.display="none";
+    startScreen.style.display="block";
+}
+
+function goBackToMenu(){
+    gameScreen.style.display="none";
+    startScreen.style.display="block";
+}
+
+function startGame(level){
+    difficulty = level;
+    difficultyScreen.style.display="none";
+    gameScreen.style.display="block";
+    createBoard();
+    updateScore();
+    document.getElementById("result").innerText="";
+    chat(aiMessage("start"));
+    play("bgSound");
+}
+
+/* Board */
+function createBoard(){
+    board = ["","","","","","","","",""];
+    isPlayerTurn = true;
+    const b=document.getElementById("board");
+    b.innerHTML="";
+
+    board.forEach((_,i)=>{
+        let cell=document.createElement("div");
+        cell.className="cell";
+
+        cell.onclick=()=>{
+            play("clickSound");
+            playerMove(i);
+        };
+
+        b.appendChild(cell);
     });
 }
 
-function playerMove(i) {
-    if (board[i] === "" && !gameOver) {
-        document.getElementById("clickSound").play();
-
-        board[i] = "X";
-        renderBoard();
-
-        if (checkWinner("X")) {
-            scoreYou++;
-            updateScore();
-            document.getElementById("winSound").play();
-            startConfetti();
-            return endGame("You Win! 🎉");
-        }
-
-        if (!board.includes("")) {
-            scoreDraw++;
-            updateScore();
-            return endGame("Draw 😐");
-        }
-
-        aiMove();
-    }
+/* Sound */
+function play(id){
+    let s=document.getElementById(id);
+    s.currentTime=0;
+    s.play();
 }
 
-function aiMove() {
-    document.getElementById("status").innerText = "🤖 AI Thinking...";
+/* Player */
+function playerMove(i){
+    if(!isPlayerTurn || board[i]!="") return;
 
-    setTimeout(() => {
-        let move;
+    board[i]="X";
+    update();
 
-        if (mode === "easy") {
-            let empty = board.map((v,i)=>v==""?i:null).filter(v=>v!==null);
-            move = empty[Math.floor(Math.random()*empty.length)];
-        } else {
-            move = minimax(board, "O").index;
-        }
+    if(check("X")){
+        playerScore++;
+        saveScore();
+        updateScore();
 
-        board[move] = "O";
-        document.getElementById("clickSound").play();
-        renderBoard();
-
-        if (checkWinner("O")) {
-            scoreAI++;
-            updateScore();
-            document.getElementById("loseSound").play();
-            return endGame("AI Wins 💀");
-        }
-
-        if (!board.includes("")) {
-            scoreDraw++;
-            updateScore();
-            return endGame("Draw 😐");
-        }
-
-        document.getElementById("status").innerText = "Your Turn (X)";
-    }, 500);
-}
-
-function minimax(newBoard, player) {
-    let empty = newBoard.map((v,i)=>v==""?i:null).filter(v=>v!==null);
-
-    if (checkWinner("X")) return {score:-1};
-    if (checkWinner("O")) return {score:1};
-    if (empty.length===0) return {score:0};
-
-    let moves=[];
-
-    for(let i of empty){
-        let move={};
-        move.index=i;
-        newBoard[i]=player;
-
-        let result=minimax(newBoard, player==="O"?"X":"O");
-        move.score=result.score;
-
-        newBoard[i]="";
-        moves.push(move);
+        document.getElementById("result").innerText="🏆 You Win!";
+        chat(aiMessage("playerWin"));
+        winEffects();
+        return;
     }
 
-    let bestMove;
-    if(player==="O"){
-        let bestScore=-Infinity;
-        moves.forEach((m,i)=>{
-            if(m.score>bestScore){bestScore=m.score;bestMove=i;}
-        });
+    if(isDraw()){
+        document.getElementById("result").innerText="🤝 Draw!";
+        chat(aiMessage("draw"));
+        return;
+    }
+
+    chat(aiMessage("move"));
+    isPlayerTurn=false;
+
+    setTimeout(aiMove,1500);
+}
+
+/* AI */
+function aiMove(){
+    let empty=board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+    let move;
+
+    if(difficulty==="easy"){
+        move=empty[Math.floor(Math.random()*empty.length)];
+    } else if(difficulty==="medium"){
+        move=Math.random()<0.5?bestMove():empty[Math.floor(Math.random()*empty.length)];
     } else {
-        let bestScore=Infinity;
-        moves.forEach((m,i)=>{
-            if(m.score<bestScore){bestScore=m.score;bestMove=i;}
-        });
+        move=bestMove();
     }
 
-    return moves[bestMove];
+    board[move]="O";
+    update();
+
+    if(check("O")){
+        aiScore++;
+        saveScore();
+        updateScore();
+
+        document.getElementById("result").innerText="😈 AI Wins!";
+        chat(aiMessage("aiWin"));
+        play("winSound");
+        return;
+    }
+
+    if(isDraw()){
+        document.getElementById("result").innerText="🤝 Draw!";
+        chat(aiMessage("draw"));
+        return;
+    }
+
+    chat("🤖 Your turn");
+    isPlayerTurn=true;
 }
 
-function checkWinner(p) {
-    const win = [
+/* Update */
+function update(){
+    document.querySelectorAll(".cell").forEach((c,i)=>{
+        c.innerText=board[i];
+    });
+}
+
+/* Chat */
+function chat(msg){
+    document.getElementById("chat").innerText="🤖 "+msg;
+}
+
+/* Restart */
+function restart(){
+    createBoard();
+    document.getElementById("result").innerText="";
+    chat("😈 New match");
+}
+
+/* Draw */
+function isDraw(){
+    return board.every(c=>c!=="");
+}
+
+/* Win */
+function check(p){
+    const wins=[
         [0,1,2],[3,4,5],[6,7,8],
         [0,3,6],[1,4,7],[2,5,8],
         [0,4,8],[2,4,6]
     ];
-
-    for (let c of win) {
-        if (c.every(i => board[i] === p)) {
-            highlightWin(c);
+    for(let combo of wins){
+        if(combo.every(i=>board[i]===p)){
+            combo.forEach(i=>{
+                document.querySelectorAll(".cell")[i].classList.add("win");
+            });
             return true;
         }
     }
     return false;
 }
 
-function highlightWin(combo) {
-    let cells = document.getElementsByClassName("cell");
-    combo.forEach(i => cells[i].classList.add("win"));
+/* Effects */
+function winEffects(){
+    play("winSound");
+    confetti({particleCount:300,spread:100});
 }
 
-function updateScore() {
-    document.getElementById("you").innerText = scoreYou;
-    document.getElementById("ai").innerText = scoreAI;
-    document.getElementById("draw").innerText = scoreDraw;
-}
-
-function endGame(msg) {
-    gameOver = true;
-    document.getElementById("status").innerText = msg;
-}
-
-function restart() {
-    board = ["","","","","","","","",""];
-    gameOver = false;
-    document.getElementById("status").innerText = "Your Turn (X)";
-    renderBoard();
-}
-
-/* Confetti effect */
-function startConfetti() {
-    const canvas = document.getElementById("confetti");
-    const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    let pieces = Array.from({length: 100}, () => ({
-        x: Math.random()*canvas.width,
-        y: Math.random()*canvas.height,
-        r: Math.random()*6+4,
-        d: Math.random()*100
-    }));
-
-    function draw() {
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.fillStyle = "yellow";
-        pieces.forEach(p=>{
-            ctx.beginPath();
-            ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-            ctx.fill();
-        });
-        update();
+/* Smart AI */
+function bestMove(){
+    let best=-Infinity,move;
+    for(let i=0;i<9;i++){
+        if(board[i]==""){
+            board[i]="O";
+            let score=minimax(false);
+            board[i]="";
+            if(score>best){best=score;move=i;}
+        }
     }
+    return move;
+}
 
-    function update() {
-        pieces.forEach(p=>{
-            p.y += Math.cos(p.d)+2;
-            if(p.y > canvas.height) p.y = 0;
-        });
+function minimax(isMax){
+    if(check("O")) return 1;
+    if(check("X")) return -1;
+    if(!board.includes("")) return 0;
+
+    if(isMax){
+        let best=-Infinity;
+        for(let i=0;i<9;i++){
+            if(board[i]==""){
+                board[i]="O";
+                best=Math.max(best,minimax(false));
+                board[i]="";
+            }
+        }
+        return best;
+    } else {
+        let best=Infinity;
+        for(let i=0;i<9;i++){
+            if(board[i]==""){
+                board[i]="X";
+                best=Math.min(best,minimax(true));
+                board[i]="";
+            }
+        }
+        return best;
     }
-
-    setInterval(draw, 30);
 }
 </script>
 
